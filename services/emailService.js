@@ -1,6 +1,7 @@
 // services/emailService.js
 
 const https = require('https');
+const querystring = require('querystring');
 
 // Генерация 6-значного кода
 const generateOTP = () => {
@@ -54,14 +55,15 @@ const sendOTPEmail = async (email, code) => {
     `;
 
     // Правильный формат параметров для Unisender API
-    const postData = new URLSearchParams();
-    postData.append('format', 'json');
-    postData.append('api_key', apiKey);
-    postData.append('sender_name', 'Пластинка');
-    postData.append('sender_email', 'alexeypntlv@yandex.ru');
-    postData.append('subject', 'Код подтверждения - Пластинка');
-    postData.append('body', htmlContent);
-    postData.append('recipients', `[{"email": "${email}"}]`);
+    const postData = querystring.stringify({
+        format: 'json',
+        api_key: apiKey,
+        sender_name: 'Пластинка',
+        sender_email: 'alexeypntlv@yandex.ru',
+        subject: 'Код подтверждения - Пластинка',
+        body: htmlContent,
+        recipients: email  // Просто email, без JSON массива!
+    });
 
     const options = {
         hostname: 'api.unisender.com',
@@ -69,7 +71,7 @@ const sendOTPEmail = async (email, code) => {
         method: 'POST',
         headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
-            'Content-Length': Buffer.byteLength(postData.toString())
+            'Content-Length': Buffer.byteLength(postData)
         }
     };
 
@@ -103,7 +105,7 @@ const sendOTPEmail = async (email, code) => {
             resolve({ success: false, error: error.message });
         });
 
-        req.write(postData.toString());
+        req.write(postData);
         req.end();
     });
 };
