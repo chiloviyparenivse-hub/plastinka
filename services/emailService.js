@@ -1,15 +1,16 @@
 // services/emailService.js
 
+const https = require('https');
+
 // Генерация 6-значного кода
 const generateOTP = () => {
-    return Math.floor(100000 + Math.random()  * 900000).toString();
+    return Math.floor(100000 + Math.random() * 900000).toString();
 };
 
 // Отправка кода через API Unisender
 const sendOTPEmail = async (email, code) => {
     const apiKey = '6t94hoxghucctu46ag1hs7hgeex85hc5hmsggkba';
-    const apiUrl = 'https://api.unisender.com/ru/api/sendEmail?format=json&api_key=' + apiKey;
-
+    
     // Формируем HTML письма
     const htmlContent = `
         <!DOCTYPE html>
@@ -35,7 +36,8 @@ const sendOTPEmail = async (email, code) => {
         </head>
         <body>
             <div class="container">
-                <div class="header">                    
+                <div class="header">
+                    <h1 style="color: #667eea;">🎵 Пластинка</h1>
                     <p>Ваш код подтверждения</p>
                 </div>
                 <div style="text-align: center;">
@@ -44,53 +46,66 @@ const sendOTPEmail = async (email, code) => {
                     <p>Если вы не запрашивали этот код, просто проигнорируйте письмо.</p>
                 </div>
                 <div class="footer">
-                    <p>© 2026 Пластинка. Все права защищены.</p>
+                    <p>© 2024 Пластинка. Все права защищены.</p>
                 </div>
             </div>
         </body>
         </html>
     `;
 
-    // Формируем параметры запроса
-    const params = new URLSearchParams();
-    params.append('format', 'json');
-    params.append('api_key', apiKey);
-    params.append('sender_name', 'Пластинка');
-    params.append('sender_email', 'alexeypntlv@yandex.ru');
-    params.append('subject', 'Код подтверждения - Пластинка');
-    params.append('body', htmlContent);
-    params.append('list_id', '1');
-    params.append('recipients', JSON.stringify([{ email: email }]));
+    // Правильный формат параметров для Unisender API
+    const postData = new URLSearchParams();
+    postData.append('format', 'json');
+    postData.append('api_key', apiKey);
+    postData.append('sender_name', 'Пластинка');
+    postData.append('sender_email', 'alexeypntlv@yandex.ru');
+    postData.append('subject', 'Код подтверждения - Пластинка');
+    postData.append('body', htmlContent);
+    postData.append('recipients', `[{"email": "${email}"}]`);
 
-    try {
-        console.log(`📧 Отправка кода ${code} на ${email} через Unisender...`);
-        
-        const response = await fetch(apiUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-            },
-            body: params.toString()
+    const options = {
+        hostname: 'api.unisender.com',
+        path: '/ru/api/sendEmail',
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Content-Length': Buffer.byteLength(postData.toString())
+        }
+    };
+
+    return new Promise((resolve) => {
+        const req = https.request(options, (res) => {
+            let data = '';
+            res.on('data', (chunk) => { data += chunk; });
+            res.on('end', () => {
+                try {
+                    const result = JSON.parse(data);
+                    console.log('Ответ Unisender:', result);
+                    
+                    if (result.result && result.result.email) {
+                        console.log(`✅ Письмо успешно отправлено! ID: ${result.result.email}`);
+                        resolve({ success: true });
+                    } else if (result.error) {
+                        console.error('❌ Ошибка Unisender:', result.error);
+                        resolve({ success: false, error: result.error });
+                    } else {
+                        resolve({ success: false, error: 'Неизвестная ошибка' });
+                    }
+                } catch (e) {
+                    console.error('❌ Ошибка парсинга ответа:', e);
+                    resolve({ success: false, error: e.message });
+                }
+            });
         });
 
-        const result = await response.json();
-        console.log('Ответ Unisender:', result);
+        req.on('error', (error) => {
+            console.error('❌ Ошибка запроса:', error);
+            resolve({ success: false, error: error.message });
+        });
 
-        if (result.result && result.result.email) {
-            console.log(`✅ Письмо успешно отправлено! ID: ${result.result.email}`);
-            return { success: true };
-        } else if (result.error) {
-            console.error('❌ Ошибка Unisender:', result.error);
-            return { success: false, error: result.error };
-        } else {
-            console.error('❌ Неизвестная ошибка:', result);
-            return { success: false, error: 'Неизвестная ошибка' };
-        }
-
-    } catch (error) {
-        console.error('❌ Ошибка отправки:', error);
-        return { success: false, error: error.message };
-    }
+        req.write(postData.toString());
+        req.end();
+    });
 };
 
 module.exports = { generateOTP, sendOTPEmail };
