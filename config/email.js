@@ -1,20 +1,27 @@
 const nodemailer = require('nodemailer');
 
-// Настройки для Яндекс почты
+// Настройки для Яндекс почты (порт 587)
 const transporter = nodemailer.createTransport({
     host: 'smtp.yandex.ru',
-    port: 465,
-    secure: true,
+    port: 587,
+    secure: false, // для порта 587 ставим false (STARTTLS)
     auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASSWORD
-    }
+    },
+    tls: {
+        rejectUnauthorized: false // отключаем строгую проверку сертификата
+    },
+    connectionTimeout: 15000, // таймаут подключения 15 секунд
+    greetingTimeout: 15000,
+    socketTimeout: 15000
 });
 
 // Проверка подключения
 transporter.verify((error, success) => {
     if (error) {
-        console.error('❌ Ошибка подключения к SMTP Яндекс:', error);
+        console.error('❌ Ошибка подключения к SMTP Яндекс:', error.message);
+        console.error('Проверьте EMAIL_USER и EMAIL_PASSWORD в переменных окружения');
     } else {
         console.log('✅ SMTP Яндекс готов к отправке писем');
     }
@@ -28,6 +35,8 @@ const generateOTP = () => {
 // Отправка кода подтверждения
 const sendOTPEmail = async (email, code) => {
     try {
+        console.log(`📧 Попытка отправки письма на ${email}`);
+        
         const mailOptions = {
             from: `"Пластинка" <${process.env.EMAIL_USER}>`,
             to: email,
@@ -35,6 +44,9 @@ const sendOTPEmail = async (email, code) => {
             html: `
                 <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); border-radius: 20px;">
                     <div style="text-align: center; margin-bottom: 30px;">
+                        <div style="width: 60px; height: 60px; background: linear-gradient(135deg, #667eea, #764ba2); border-radius: 15px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 15px;">
+                            <span style="font-size: 30px;">🎵</span>
+                        </div>
                         <h1 style="color: #fff; margin: 0;">Пластинка</h1>
                         <p style="color: rgba(255,255,255,0.6); margin-top: 5px;">Ваш код подтверждения</p>
                     </div>
@@ -61,8 +73,9 @@ const sendOTPEmail = async (email, code) => {
         const info = await transporter.sendMail(mailOptions);
         console.log(`✅ Письмо отправлено на ${email}`);
         return { success: true };
+        
     } catch (error) {
-        console.error('❌ Ошибка отправки письма:', error);
+        console.error('❌ Ошибка отправки письма:', error.message);
         return { success: false, error: error.message };
     }
 };
