@@ -1,7 +1,7 @@
 const jwt = require('jsonwebtoken');
 const { validationResult } = require('express-validator');
 const db = require('../config/database');
-const { generateOTP, sendOTPEmail } = require('../config/email');
+const { generateOTP, sendOTPEmail } = require('../services/emailService');
 require('dotenv').config();
 
 class AuthController {
