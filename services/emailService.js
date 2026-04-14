@@ -35,12 +35,12 @@ const sendOTPEmail = async (email, code) => {
         </head>
         <body>
             <div class="container">
-                <h1 style="color: #667eea;">🎵 Пластинка</h1>
+                <h1 style="color: #667eea;">Пластинка</h1>
                 <p>Ваш код подтверждения:</p>
                 <div class="code">${code}</div>
                 <p>Код действителен в течение 5 минут.</p>
                 <div class="footer">
-                    <p>© 2024 Пластинка</p>
+                    <p>© 2026 Пластинка</p>
                 </div>
             </div>
         </body>
