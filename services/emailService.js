@@ -1,16 +1,17 @@
 // services/emailService.js
-const https = require('https');
 
-const API_TOKEN = '7b85c671c8e3fe9f45d128970cfa6815';
-const API_BASE_URL = 'https://api.notisend.ru/v1';
-
-// Генерация 6-значного кода
 const generateOTP = () => {
     return Math.floor(100000 + Math.random() * 900000).toString();
 };
 
-// Отправка кода через API NotiSend
 const sendOTPEmail = async (email, code) => {
+    const proxyUrl = process.env.VERCEL_EMAIL_PROXY_URL;
+    
+    if (!proxyUrl) {
+        console.error('❌ VERCEL_EMAIL_PROXY_URL не задан');
+        return { success: false, error: 'Proxy URL not configured' };
+    }
+
     const htmlContent = `
         <!DOCTYPE html>
         <html>
@@ -46,60 +47,32 @@ const sendOTPEmail = async (email, code) => {
         </html>
     `;
 
-    const postData = JSON.stringify({
-        from_email: 'alexeypntlv@yandex.ru',
-        from_name: 'Пластинка',
-        to: email,
-        subject: 'Код подтверждения - Пластинка',
-        html: htmlContent,
-        text: `Ваш код подтверждения: ${code}. Код действителен 5 минут.`,
-        payment: 'credit_priority'  // используем кредиты в первую очередь
-    });
+    try {
+        const response = await fetch(proxyUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                to: email,
+                subject: 'Код подтверждения - Пластинка',
+                html: htmlContent,
+            })
+        });
 
-    const options = {
-        hostname: 'api.notisend.ru',
-        path: '/v1/email/messages',
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${API_TOKEN}`,
-            'Content-Type': 'application/json',
-            'Content-Length': Buffer.byteLength(postData)
+        const result = await response.json();
+        
+        if (response.ok && result.success) {
+            console.log(`✅ Письмо отправлено через Vercel прокси на ${email}`);
+            return { success: true };
+        } else {
+            console.error('❌ Ошибка Vercel прокси:', result);
+            return { success: false, error: result.error };
         }
-    };
-
-    return new Promise((resolve) => {
-        const req = https.request(options, (res) => {
-            let data = '';
-            res.on('data', (chunk) => { data += chunk; });
-            res.on('end', () => {
-                try {
-                    const result = JSON.parse(data);
-                    console.log('NotiSend ответ:', result);
-                    
-                    if (result.id || (result.status && result.status !== 'error')) {
-                        console.log(`✅ Письмо отправлено! ID: ${result.id || 'unknown'}`);
-                        resolve({ success: true });
-                    } else if (result.errors) {
-                        console.error('❌ Ошибка NotiSend:', result.errors);
-                        resolve({ success: false, error: result.errors[0]?.detail || 'Unknown error' });
-                    } else {
-                        resolve({ success: false, error: 'Неизвестная ошибка' });
-                    }
-                } catch (e) {
-                    console.error('❌ Ошибка парсинга ответа:', e);
-                    resolve({ success: false, error: e.message });
-                }
-            });
-        });
-
-        req.on('error', (error) => {
-            console.error('❌ Ошибка запроса:', error);
-            resolve({ success: false, error: error.message });
-        });
-
-        req.write(postData);
-        req.end();
-    });
+    } catch (error) {
+        console.error('❌ Ошибка запроса к Vercel:', error);
+        return { success: false, error: error.message };
+    }
 };
 
 module.exports = { generateOTP, sendOTPEmail };
