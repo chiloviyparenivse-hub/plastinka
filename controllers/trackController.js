@@ -325,7 +325,6 @@ class TrackController {
                 return res.status(400).json({ message: 'MP3 файл не загружен' });
             }
 
-            // Проверяем, является ли пользователь админом (по полю is_admin в users)
             if (!req.user.isAdmin) {
                 return res.status(403).json({ 
                     message: 'Доступ запрещен. Только для администраторов.',
@@ -336,8 +335,12 @@ class TrackController {
             const adminId = req.user.id;
             console.log('Админ создает трек, ID:', adminId);
 
-            const audioPath = `/uploads/music/${req.files.audio[0].filename}`;
-            const coverPath = req.files.cover ? `/uploads/covers/${req.files.cover[0].filename}` : null;
+            // Определяем путь для загрузки в зависимости от окружения
+            const isProduction = process.env.NODE_ENV === 'production';
+            const uploadsDir = isProduction ? '/app/uploads' : 'uploads';
+            
+            const audioPath = `${uploadsDir}/music/${req.files.audio[0].filename}`;
+            const coverPath = req.files.cover ? `${uploadsDir}/covers/${req.files.cover[0].filename}` : null;
             
             console.log('Аудио файл:', audioPath);
             console.log('Обложка:', coverPath || 'не загружена');
@@ -407,6 +410,9 @@ class TrackController {
                 }
             }
 
+            const isProduction = process.env.NODE_ENV === 'production';
+            const uploadsDir = isProduction ? '/app/uploads' : 'uploads';
+
             const updateData = {
                 title: title || existingTrack.title,
                 artist: artist || existingTrack.artist,
@@ -415,11 +421,8 @@ class TrackController {
             };
 
             if (req.files && req.files.cover) {
-                updateData.cover_url = `/uploads/covers/${req.files.cover[0].filename}`;
-                console.log('Новая обложка (через files):', updateData.cover_url);
-            } else if (req.file) {
-                updateData.cover_url = `/uploads/covers/${req.file.filename}`;
-                console.log('Новая обложка (через file):', updateData.cover_url);
+                updateData.cover_url = `${uploadsDir}/covers/${req.files.cover[0].filename}`;
+                console.log('Новая обложка:', updateData.cover_url);
             }
 
             console.log('Данные для обновления:', updateData);

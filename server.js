@@ -12,7 +12,6 @@ const app = express();
 // Middleware
 app.use(cors());
 app.use(express.json());
-app.use('/uploads', express.static('uploads'));
 app.use(express.urlencoded({ extended: true }));
 
 // Логирование запросов
@@ -45,7 +44,10 @@ app.get('/', (req, res) => {
     });
 });
 
-// Статические файлы
+// Статические файлы - с поддержкой Volume
+const isProduction = process.env.NODE_ENV === 'production';
+const staticPath = isProduction ? '/app/uploads' : 'uploads';
+app.use('/uploads', express.static(staticPath));
 app.use('/storage', express.static('storage'));
 
 // Обработка 404
@@ -74,8 +76,15 @@ const coversDir = path.join(__dirname, 'uploads/covers');
 const tempDir = path.join(__dirname, 'uploads/temp');
 const dataDir = path.join(__dirname, 'data');
 
-[storageDir, uploadsDir, avatarsDir, musicDir, coversDir, tempDir, dataDir].forEach(dir => {
-    if (!fs.existsSync(dir)) {
+// Для продакшена используем путь к Volume
+const baseUploadsDir = isProduction ? '/app/uploads' : uploadsDir;
+const baseMusicDir = isProduction ? '/app/uploads/music' : musicDir;
+const baseCoversDir = isProduction ? '/app/uploads/covers' : coversDir;
+const baseAvatarsDir = isProduction ? '/app/uploads/avatars' : avatarsDir;
+
+[storageDir, uploadsDir, avatarsDir, musicDir, coversDir, tempDir, dataDir, 
+ baseUploadsDir, baseMusicDir, baseCoversDir, baseAvatarsDir].forEach(dir => {
+    if (dir && !fs.existsSync(dir)) {
         fs.mkdirSync(dir, { recursive: true });
         console.log(`📁 Создана папка: ${dir}`);
     }
@@ -101,6 +110,7 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`✅ Сервер запущен на порту ${PORT}`);
     console.log(`🌍 http://localhost:${PORT}`);
+    console.log(`📁 Папка загрузок: ${isProduction ? '/app/uploads' : 'uploads'}`);
     console.log('\n📌 Доступные маршруты:');
     console.log('   GET  /');
     console.log('   POST /api/auth/send-otp');
