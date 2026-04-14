@@ -4,24 +4,25 @@ const nodemailer = require('nodemailer');
 const transporter = nodemailer.createTransport({
     host: 'smtp.yandex.ru',
     port: 587,
-    secure: false, // для порта 587 ставим false (STARTTLS)
+    secure: false,
     auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASSWORD
     },
     tls: {
-        rejectUnauthorized: false // отключаем строгую проверку сертификата
+        rejectUnauthorized: false
     },
-    connectionTimeout: 15000, // таймаут подключения 15 секунд
-    greetingTimeout: 15000,
-    socketTimeout: 15000
+    connectionTimeout: 30000,  // 30 секунд
+    greetingTimeout: 30000,     // 30 секунд
+    socketTimeout: 30000        // 30 секунд
 });
 
 // Проверка подключения
 transporter.verify((error, success) => {
     if (error) {
         console.error('❌ Ошибка подключения к SMTP Яндекс:', error.message);
-        console.error('Проверьте EMAIL_USER и EMAIL_PASSWORD в переменных окружения');
+        console.error('📧 EMAIL_USER:', process.env.EMAIL_USER);
+        console.error('🔑 EMAIL_PASSWORD:', process.env.EMAIL_PASSWORD ? '***установлен***' : 'не установлен');
     } else {
         console.log('✅ SMTP Яндекс готов к отправке писем');
     }
