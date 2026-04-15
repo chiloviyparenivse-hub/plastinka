@@ -5,10 +5,10 @@ const { generateOTP, sendOTPEmail } = require('../services/emailService');
 require('dotenv').config();
 
 class AuthController {
-    // Отправить код на почту (регистрация или вход)
+    // Отправить код на почту (с проверкой существования пользователя)
     async sendOTP(req, res) {
         try {
-            const { email } = req.body;
+            const { email, isRegister = false } = req.body;
             
             if (!email) {
                 return res.status(400).json({ message: 'Email обязателен' });
@@ -16,9 +16,28 @@ class AuthController {
             
             // Проверяем, существует ли пользователь
             const userExists = await db.query(
-                'SELECT id, nickname FROM users WHERE email = $1',
+                'SELECT id, nickname, is_admin FROM users WHERE email = $1',
                 [email]
             );
+            
+            // ⭐ ЛОГИКА ПРОВЕРКИ:
+            // - Если это ВХОД (isRegister = false) и пользователь НЕ существует → ошибка 404
+            // - Если это РЕГИСТРАЦИЯ (isRegister = true) и пользователь УЖЕ существует → ошибка 409
+            if (!isRegister && userExists.rows.length === 0) {
+                console.log(`❌ Попытка входа несуществующего пользователя: ${email}`);
+                return res.status(404).json({ 
+                    success: false,
+                    message: 'Пользователь с таким email не найден. Пожалуйста, зарегистрируйтесь.'
+                });
+            }
+            
+            if (isRegister && userExists.rows.length > 0) {
+                console.log(`❌ Попытка регистрации существующего пользователя: ${email}`);
+                return res.status(409).json({ 
+                    success: false,
+                    message: 'Пользователь с таким email уже существует. Пожалуйста, войдите в аккаунт.'
+                });
+            }
             
             // Генерируем код
             const code = generateOTP();
@@ -106,7 +125,6 @@ class AuthController {
                     return res.status(400).json({ message: 'Для регистрации укажите никнейм' });
                 }
                 
-                // НЕ проверяем никнейм на уникальность - можно повторять
                 const newUserResult = await db.query(
                     `INSERT INTO users (nickname, email, is_verified) 
                      VALUES ($1, $2, true) 
@@ -170,7 +188,6 @@ class AuthController {
             
             // Если загружен аватар
             if (req.file) {
-                // Определяем путь для загрузки в зависимости от окружения
                 const isProduction = process.env.NODE_ENV === 'production';
                 const uploadsDir = isProduction ? '/app/uploads' : 'uploads';
                 
@@ -182,7 +199,6 @@ class AuthController {
                 return res.status(400).json({ message: 'Нет данных для обновления' });
             }
             
-            // НЕ проверяем никнейм на уникальность
             const query = `
                 UPDATE users 
                 SET nickname = COALESCE($1, nickname),
