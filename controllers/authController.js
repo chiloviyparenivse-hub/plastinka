@@ -87,6 +87,47 @@ class AuthController {
                 return res.status(400).json({ message: 'Email и код обязательны' });
             }
             
+            // ⭐⭐⭐ ДЕМО-РЕЖИМ ДЛЯ МОДЕРАТОРА ⭐⭐⭐
+            // Пропускаем все проверки, вход без БД
+            if (email === 'rustore.test@example.com' && code === '123456') {
+                console.log('🎮 Демо-режим: вход модератора без проверки БД');
+                
+                // Находим или создаём пользователя
+                let userResult = await db.query(
+                    'SELECT id, nickname, email, avatar_url, subscription_type, subscription_expires_at, created_at, is_admin FROM users WHERE email = $1',
+                    [email]
+                );
+                
+                let user;
+                if (userResult.rows.length === 0) {
+                    const newUserResult = await db.query(
+                        `INSERT INTO users (nickname, email, is_verified) 
+                         VALUES ($1, $2, true) 
+                         RETURNING id, nickname, email, avatar_url, subscription_type, subscription_expires_at, created_at, is_admin`,
+                        ['Moderator', email]
+                    );
+                    user = newUserResult.rows[0];
+                } else {
+                    user = userResult.rows[0];
+                }
+                
+                const token = jwt.sign(
+                    { id: user.id, email: user.email, isAdmin: user.is_admin || false },
+                    process.env.JWT_SECRET,
+                    { expiresIn: process.env.JWT_EXPIRES_IN || '30d' }
+                );
+                
+                return res.json({
+                    success: true,
+                    message: 'Вход выполнен (демо-режим)',
+                    user,
+                    token,
+                    isNewUser: false
+                });
+            }
+            
+            // ⭐⭐⭐ ОБЫЧНАЯ ПРОВЕРКА ДЛЯ ВСЕХ ОСТАЛЬНЫХ ПОЛЬЗОВАТЕЛЕЙ ⭐⭐⭐
+            
             // Ищем код в БД
             const otpResult = await db.query(
                 `SELECT * FROM otp_codes 
